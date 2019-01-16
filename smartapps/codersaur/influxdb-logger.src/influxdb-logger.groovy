@@ -188,7 +188,7 @@ def updated() {
     state.deviceAttributes << [ devices: 'alarms', attributes: ['alarm']]
     state.deviceAttributes << [ devices: 'batteries', attributes: ['battery']]
     state.deviceAttributes << [ devices: 'beacons', attributes: ['presence']]
-    state.deviceAttributes << [ devices: 'buttons', attributes: ['button']]
+    state.deviceAttributes << [ devices: 'buttons', attributes: ['button','occupancy']]
     state.deviceAttributes << [ devices: 'cos', attributes: ['carbonMonoxide']]
     state.deviceAttributes << [ devices: 'co2s', attributes: ['carbonDioxide']]
     state.deviceAttributes << [ devices: 'colors', attributes: ['hue','saturation','color']]
@@ -368,6 +368,12 @@ def handleEvent(evt) {
         valueBinary = ('present' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
+    else if ('occupancy' == evt.name) { // occupancy: Calculate a binary value (engaged = 1, everythings else = 0)
+        unit = 'occupancy'
+        value = '"' + value + '"'
+        valueBinary = ('engaged' == evt.value) ? '1i' : '0i'
+        data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
+    }
     else if ('shock' == evt.name) { // shock: Calculate a binary value (detected = 1, clear = 0)
         unit = 'shock'
         value = '"' + value + '"'
@@ -419,7 +425,7 @@ def handleEvent(evt) {
     else if ('thermostatOperatingState' == evt.name) { // thermostatOperatingState: Calculate a binary value (heating = 1, <any other value> = 0)
         unit = 'thermostatOperatingState'
         value = '"' + value + '"'
-        valueBinary = ('heating' == evt.value) ? '1i' : '0i'
+        valueBinary = ('home' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
     else if ('thermostatSetpointMode' == evt.name) { // thermostatSetpointMode: Calculate a binary value (followSchedule = 0, <any other value> = 1)
@@ -799,8 +805,20 @@ private escapeStringForInfluxDB(str) {
 private getGroupName(id) {
 
     if (id == null) {return 'Home'}
-    else if (id == 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX') {return 'Kitchen'}
-    else if (id == 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX') {return 'Lounge'}
-    else if (id == 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX') {return 'Office'}
+    else if (id == '11fb7937-b4c6-4ac9-b9d5-6d384de34b49') {return 'Kitchen'}
+    else if (id == '51fa4da3-c7d1-4d60-aa55-5883e32efbda') {return 'Living Room'}
+    else if (id == '6084e4b4-cc2c-43c7-87e5-cdaf7e42eed6') {return 'Hallway'}
+    else if (id == '74b6cd5e-bb86-4a53-8b67-be0bc67609cb') {return 'Dining Room'}
+    else if (id == '783df386-5597-4a5e-9834-4924bab8db8b') {return 'Lower Floor'}
+    else if (id == '85c01dcf-00d6-4320-8389-d74ae47efb96') {return 'Master Bedroom'}
+    else if (id == 'a7e41163-53c6-4eb9-91ec-23380dbe4f29') {return 'Office'}
+    else if (id == 'c0fb7933-09b6-431f-8047-4339a8c3bd89') {return 'Outside'}
+    else if (id == 'c13262e4-fcda-4a34-8a20-180615dda31e') {return 'Upper Floor'}
+    else if (id == 'c472de58-17b2-430f-b1b5-b758142f24d0') {return 'Laundry Room'}
+    else if (id == '4c4ac265-c3f5-4882-9ef0-de69fb166f07') {return 'Top Bathroom'}
+    else if (id == 'c472de58-17b2-430f-b1b5-b758142f24d0') {return 'Laundry Room'}
+    else if (id == 'cec4802c-31d1-4933-bba8-cde4ae304cc9') {return 'Patio'}
+    else if (id == '4fa5fe83-e92b-4115-a909-91c717178fa5') {return 'Guest Bathroom'}
+    else if (id == 'f99b16c9-b284-4f21-a29a-afac82d9063d') {return 'Reading Room'}
     else {return 'Unknown'}    
 }
