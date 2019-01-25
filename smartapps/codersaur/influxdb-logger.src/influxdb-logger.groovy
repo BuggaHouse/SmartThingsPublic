@@ -215,8 +215,8 @@ def updated() {
 	state.deviceAttributes << [ devices: 'switches', attributes: ['switch']]
     state.deviceAttributes << [ devices: 'switchLevels', attributes: ['level']]
     state.deviceAttributes << [ devices: 'tamperAlerts', attributes: ['tamper']]
-    state.deviceAttributes << [ devices: 'temperatures', attributes: ['temperature']]
-    state.deviceAttributes << [ devices: 'thermostats', attributes: ['temperature','heatingSetpoint','coolingSetpoint','thermostatSetpoint','thermostatMode','thermostatFanMode','thermostatOperatingState','thermostatSetpointMode','scheduledSetpoint','optimisation','windowFunction']]
+    state.deviceAttributes << [ devices: 'temperatures', attributes: ['temperature','feelsLike']]
+    state.deviceAttributes << [ devices: 'thermostats', attributes: ['temperature','humidity','heatingSetpoint','coolingSetpoint','thermostat','thermostatFanMode','thermostatSchedule']]
     state.deviceAttributes << [ devices: 'threeAxis', attributes: ['threeAxis']]
     state.deviceAttributes << [ devices: 'touchs', attributes: ['touch']]
     state.deviceAttributes << [ devices: 'uvs', attributes: ['ultravioletIndex']]
@@ -410,10 +410,10 @@ def handleEvent(evt) {
         valueBinary = ('detected' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
-    else if ('thermostatMode' == evt.name) { // thermostatMode: Calculate a binary value (<any other value> = 1, off = 0)
-        unit = 'thermostatMode'
+    else if ('thermostat' == evt.name) { // thermostatMode: Calculate a binary value (<any other value> = 1, off = 0)
+        unit = 'thermostat'
         value = '"' + value + '"'
-        valueBinary = ('off' == evt.value) ? '0i' : '1i'
+        valueBinary = ('idle' == evt.value) ? '0i' : '1i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
     else if ('thermostatFanMode' == evt.name) { // thermostatFanMode: Calculate a binary value (<any other value> = 1, off = 0)
@@ -422,16 +422,10 @@ def handleEvent(evt) {
         valueBinary = ('off' == evt.value) ? '0i' : '1i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
-    else if ('thermostatOperatingState' == evt.name) { // thermostatOperatingState: Calculate a binary value (heating = 1, <any other value> = 0)
-        unit = 'thermostatOperatingState'
+    else if ('thermostatSchedule' == evt.name) { // thermostatOperatingState: Calculate a binary value (heating = 1, <any other value> = 0)
+        unit = 'thermostatSchedule'
         value = '"' + value + '"'
         valueBinary = ('home' == evt.value) ? '1i' : '0i'
-        data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
-    }
-    else if ('thermostatSetpointMode' == evt.name) { // thermostatSetpointMode: Calculate a binary value (followSchedule = 0, <any other value> = 1)
-        unit = 'thermostatSetpointMode'
-        value = '"' + value + '"'
-        valueBinary = ('followSchedule' == evt.value) ? '0i' : '1i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
     else if ('threeAxis' == evt.name) { // threeAxis: Format to x,y,z values.
