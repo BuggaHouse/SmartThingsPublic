@@ -813,6 +813,7 @@ private getGroupName(id) {
     else if (id == 'c472de58-17b2-430f-b1b5-b758142f24d0') {return 'Laundry Room'}
     else if (id == 'cec4802c-31d1-4933-bba8-cde4ae304cc9') {return 'Patio'}
     else if (id == '4fa5fe83-e92b-4115-a909-91c717178fa5') {return 'Guest Bathroom'}
+    else if (id == 'f0e5cb12-49ae-4f08-8f28-d8926241977d') {return 'Guest Bedroom'}
     else if (id == 'f99b16c9-b284-4f21-a29a-afac82d9063d') {return 'Reading Room'}
     else {return 'Unknown'}    
 }

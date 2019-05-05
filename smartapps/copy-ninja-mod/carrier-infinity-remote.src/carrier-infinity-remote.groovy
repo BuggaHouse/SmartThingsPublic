@@ -114,7 +114,7 @@ def initialize() {
 
 def pollTask() {
 	syncThermostats()
-    runIn(60*settings.polling, pollTask)
+    // runIn(60*settings.polling, pollTask) || Managed by WebCore
 }
 def refreshChild(dni) {
 	log.debug "Refreshing for child " + dni
