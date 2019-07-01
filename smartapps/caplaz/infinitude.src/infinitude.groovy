@@ -60,16 +60,19 @@ def initialize() {
                 headers: [ HOST: "$infinitudeIp:$infinitudePort" ] 
             ],
             null,
-            [ callback: handleStatusResponse ]
+            [ callback: handlerStatusResponse ]
         )
         sendHubCommand(hubAction)
         
+        unschedule(refresh)
+        runEvery5Minutes(refresh)
+        
     } catch (Exception e) {
-		logg.error "postToInfluxDB(): Exception ${e} on ${hubAction}"
+		log.error "postToInfluxDB(): Exception ${e} on ${hubAction}"
     }
 }
 
-def handleStatusResponse(physicalgraph.device.HubResponse hubResponse) {
+def handlerStatusResponse(physicalgraph.device.HubResponse hubResponse) {
 
     if (hubResponse.status == 200) {
     	def body = hubResponse.json
@@ -82,7 +85,7 @@ def handleStatusResponse(physicalgraph.device.HubResponse hubResponse) {
                 
                 log.info "Found zone: ${name}, DNI: ${dni}"
                 
-                updateThermostat(dni)
+                addThermostat(dni, name)
             }
         }
     } else {
@@ -90,12 +93,16 @@ def handleStatusResponse(physicalgraph.device.HubResponse hubResponse) {
     }
 }
 
-private updateThermostat(dni) {
+private addThermostat(dni, name) {
     log.debug "Processing DNI: " + dni
     
     def d = getChildDevice(dni)
     if(!d) {
-        d = addChildDevice("SmartThingsMod", "Carrier Thermostat", dni, null, ["label" : "Carrier Thermostat Zone " + dni.split("\\|")[2]])
+        d = addChildDevice("SmartThingsMod", "Carrier Thermostat", dni, null, 
+        [
+        	"label": name,
+        	"componentLabel": "Carrier Thermostat Zone " + dni.split("\\|")[2]
+        ])
         log.debug "----->created ${d.displayName} with id ${dni}"
         
     } else {
@@ -103,4 +110,9 @@ private updateThermostat(dni) {
     }
     
     return d
+}
+
+def refresh() {
+	log.debug "Executing 'poll'"
+    
 }
