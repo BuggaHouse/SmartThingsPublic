@@ -25,94 +25,165 @@ definition(
 
 
 preferences {
-	section("Infinitude Proxy") {
+    section("Infinitude Proxy") {
         paragraph "Infinitude internal host information"
-    	input "host", "text", defaultValue: "192.168.7.100", required: true, title: "Host"
-    	input "port", "number", defaultValue: "3000", required: true, title: "Port"
-	}
-}
-
-def installed() {
-	log.debug "Installed with settings: ${settings}"
-
-	initialize()
-}
-
-def updated() {
-	log.debug "Updated with settings: ${settings}"
-
-	unsubscribe()
-	initialize()
-}
-
-def initialize() {
-	// TODO: subscribe to attributes, devices, locations, etc.
-	log.debug "Connecting to Infinitude"
-    
-    def infinitudeIp = settings.host
-    def infinitudePort = settings.port
-    
-     try {
-        def hubAction = new physicalgraph.device.HubAction(
-        	[
-                method: "GET",
-                path: "/api/config/zones",
-                headers: [ HOST: "$infinitudeIp:$infinitudePort" ] 
-            ],
-            null,
-            [ callback: handlerStatusResponse ]
-        )
-        sendHubCommand(hubAction)
-        
-        unschedule(refresh)
-        runEvery5Minutes(refresh)
-        
-    } catch (Exception e) {
-		log.error "postToInfluxDB(): Exception ${e} on ${hubAction}"
+        input "host", "text", defaultValue: "192.168.7.100", required: true, title: "Host"
+        input "port", "number", defaultValue: "3000", required: true, title: "Port"
     }
 }
 
-def handlerStatusResponse(physicalgraph.device.HubResponse hubResponse) {
+def installed() {
+    log.debug "Installed with settings: ${settings}"
+
+    initialize()
+}
+
+def updated() {
+    log.debug "Updated with settings: ${settings}"
+
+    unsubscribe()
+    initialize()
+}
+
+def initialize() {
+    getZonesConfig()
+
+    // refresh the devices every 5 minuts
+    unschedule(refresh)
+    runEvery5Minutes(refresh)
+}
+
+def refresh() {
+    log.debug "Executing 'poll'"
+
+    def children = getAllChildDevices()
+    children.each { child ->
+        def zoneId = dniToZone(child.deviceNetworkId)
+        getZoneStatus(zoneId)
+    }
+}
+
+
+
+/***********
+ * CONFIG *
+ ***********/
+
+private getZonesConfig() {
+    log.debug "Connecting to Infinitude"
+    
+    try {
+        def hubAction = new physicalgraph.device.HubAction(
+            [
+                method: "GET",
+                path: "/api/config/zones",
+                headers: [ HOST: getInfinitudeHost() ] 
+            ],
+            null,
+            [ callback: getZonesConfigParser ]
+        )
+        sendHubCommand(hubAction)
+
+    } catch (Exception e) {
+        log.error "getZonesConfig(): Exception ${e} on ${hubAction}"
+    }
+}
+
+def getZonesConfigParser(physicalgraph.device.HubResponse hubResponse) {
 
     if (hubResponse.status == 200) {
-    	def body = hubResponse.json
-      
+        def body = hubResponse.json
+
         body.data.zone.each { zone ->
             if (zone.enabled.getAt(0) == "on") {
-            
-    			def name = zone.name.getAt(0)
-                def dni = app.id + "|zone|" + zone.id
-                
+
+                def name = zone.name.getAt(0)
+                def dni  = zoneToDni(zone.id)
+
                 log.info "Found zone: ${name}, DNI: ${dni}"
-                
+
                 addThermostat(dni, name)
             }
         }
     } else {
-    	log.error "NETWORK ERROR"
+        log.error "NETWORK ERROR"
     }
+}
+
+
+
+
+
+/***********
+ * STATUS  *
+ ***********/
+
+private getZoneStatus(zoneId) {
+    log.debug "Updating status of zone ${zoneId}"
+    
+    try {
+        def hubAction = new physicalgraph.device.HubAction(
+            [
+                method: "GET",
+                path: "/api/status/${zoneId}",
+                headers: [ HOST: getInfinitudeHost() ] 
+            ],
+            null,
+            [ callback: getZoneStatusParser ]
+        )
+        sendHubCommand(hubAction)
+
+    } catch (Exception e) {
+        log.error "getZoneStatus(): Exception ${e} on ${hubAction}"
+    }
+}
+
+def getZoneStatusParser(physicalgraph.device.HubResponse hubResponse) {
+
+    if (hubResponse.status == 200) {
+        def body = hubResponse.json
+        
+    } else {
+        log.error "NETWORK ERROR"
+    }
+}
+
+
+
+/***********
+ * HELPERS *
+ ***********/
+
+private getInfinitudeHost() {
+    def infinitudeIp = settings.host
+    def infinitudePort = settings.port
+
+    return "${infinitudeIp}:${infinitudePort}"
+}
+
+private zoneToDni(zoneId) {
+    return app.id + "|zone|" + zoneId
+}
+
+private dniToZone(dni) {
+    return dni.split("\\|")[2]
 }
 
 private addThermostat(dni, name) {
     log.debug "Processing DNI: " + dni
-    
+
     def d = getChildDevice(dni)
     if(!d) {
         d = addChildDevice("SmartThingsMod", "Carrier Thermostat", dni, null, 
-        [
-        	"label": name,
-        	"componentLabel": "Carrier Thermostat Zone " + dni.split("\\|")[2]
-        ])
+                           [
+                               "label": name,
+                               "componentLabel": "Carrier Thermostat Zone " + dniToZone(dni)
+                           ])
         log.debug "----->created ${d.displayName} with id ${dni}"
-        
+
     } else {
         log.debug "found ${d.displayName} with id ${dni} already exists"
     }
-    
-    return d
-}
 
-def refresh() {
-	log.debug "Executing 'poll'"
-    
+    return d
 }
