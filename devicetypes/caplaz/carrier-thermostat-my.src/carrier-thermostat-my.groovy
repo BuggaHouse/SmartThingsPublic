@@ -23,6 +23,25 @@ metadata {
         capability "Thermostat"
         capability "Relative Humidity Measurement"
         
+        command "setActivityHome"
+        command "setActivityAway"
+        command "setActivityWake"   
+        command "setActivitySleep"     
+        
+        attribute "zone", "number"
+        attribute "currentActivity", "string"
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
     
         capability "Actuator"
         capability "Sensor"
@@ -43,8 +62,11 @@ metadata {
         // To satisfy some SA/rules that incorrectly using poll instead of Refresh
         command "poll"
         
-        attribute "zone", "number"
-        attribute "currentActivity", "string"
+        
+        
+        
+        
+        
         
         //attribute "humidity", "number"
         //attribute "coolingSetpoint", "number"
@@ -89,8 +111,33 @@ metadata {
                 attributeState("coolingSetpoint", label:'${currentValue}', unit:"dF", defaultState: true)
             }
         }
+        
+        
 
+        standardTile("activity", "device.currentActivity", width: 2, height: 2) {
+            state "away",   label:'${currentValue}', icon: "st.Health & Wellness.health12", backgroundColor:"#7eb26d"
+            state "wake",   label:'${currentValue}', icon: "st.Lighting.light1", backgroundColor:"#f9934e"
+            state "sleep",  label:'${currentValue}', icon: "st.Bedroom.bedroom2", backgroundColor:"#614d93"
+            state "home",   label:'${currentValue}', icon: "st.Home.home4", backgroundColor:"#1f78c1"
+            state "manual", label:'${currentValue}', icon: "st.Home.home1", backgroundColor:"#d683ce"
+        }
 
+        standardTile("setHome", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+            state "val", label:"Set Home", icon: "st.Home.home4", action: "setActivityHome"
+        }
+
+        standardTile("setAway", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+            state "val", label:"Set Away", icon: "st.Health & Wellness.health12", action: "setActivityAway"
+        }
+
+        standardTile("setWake", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+            state "val", label:"Set Wake", icon: "st.Lighting.light1", action: "setActivityWake"
+        }
+
+        standardTile("setSleep", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+            state "val", label:"Set Sleep", icon: "st.Bedroom.bedroom2", action: "setActivitySleep"
+        }
+       
 
 
 
@@ -126,7 +173,7 @@ metadata {
             state "updating", label:"Updating...", icon: "st.secondary.secondary"
         }
         valueTile("thermostat", "device.thermostat", width:2, height:1, decoration: "flat") {
-            state "thermostat", label:'${currentValue}', backgroundColor:"#ffffff"
+                state "thermostat", label:'${currentValue}', backgroundColor:"#ffffff"
         }
         standardTile("refresh", "device.thermostatMode", width:2, height:1, inactiveLabel: false, decoration: "flat") {
             state "default", action:"refresh.refresh", icon:"st.secondary.refresh"
@@ -138,12 +185,16 @@ metadata {
         
         // the tile will appear in the Things view
         main "temperature"
-        
+
         // the tiles will appear in the Device Details
         // view (order is left-to-right, top-to-bottom)
-        details(["temperature",  "lowerHeatingSetpoint", "heatingSetpoint", "raiseHeatingSetpoint",
-                 "lowerCoolSetpoint", "coolingSetpoint", "raiseCoolSetpoint", "mode", "fanMode",
-                 "thermostat", "resumeProgram", "refresh"])
+        details([
+            "temperature",  
+            "activity", "setHome", "setAway", "setWake", "setSleep",
+            "lowerHeatingSetpoint", "heatingSetpoint", "raiseHeatingSetpoint",
+            "lowerCoolSetpoint", "coolingSetpoint", "raiseCoolSetpoint", "mode", "fanMode",
+            "thermostat", "resumeProgram", "refresh"
+        ])
     }
 
     preferences {
@@ -208,6 +259,43 @@ def updateState(zoneId, zone) {
 }
 
 
+def setActivityHome() {
+    switchActivityToMode("home");
+}
+
+def setActivityAway() {
+    switchActivityToMode("away");
+}
+
+def setActivityWake() {
+    switchActivityToMode("wake");
+}
+
+def setActivitySleep() {
+    switchActivityToMode("sleep");
+} 
+
+private switchActivityToMode(mode) {
+	log.debug "switchToMode: ${mode}"
+    
+    sendEvent([name: "currentActivity", value: mode])
+    
+	def deviceId = device.deviceNetworkId.split(/\./).last()
+	// Thermostat's mode for "emergency heat" is "auxHeatOnly"
+	if (!(parent.setMode(((mode == "emergency heat") ? "auxHeatOnly" : mode), device.zone))) {
+		log.warn "Error setting mode:$mode"
+		// Ensure the DTH tile is reset
+	//	generateModeEvent(device.currentValue("thermostatMode"))
+	}
+	//XYZ runIn(5, "refresh", [overwrite: true])
+}
+
+
+
+
+/***********
+ * HELPERS *
+ ***********/
 
 private getThermostatMode(original) {
     switch (original) {
