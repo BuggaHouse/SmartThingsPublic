@@ -13,43 +13,44 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
- 
+
 import groovy.json.JsonOutput
 
 metadata {
     definition (name: "Carrier Thermostat My", namespace: "Caplaz", author: "Stefano Acerbetti") {
-    
-    	// valid capabilities
+
+        // valid capabilities
         capability "Thermostat"
         capability "Relative Humidity Measurement"
-        
+
+        command "setActivityPerSchedule"
         command "setActivityHome"
         command "setActivityAway"
-        command "setActivityWake"   
-        command "setActivitySleep"     
-        
-        attribute "zone", "number"
+        command "setActivityWake"
+        command "setActivitySleep"
+
+        attribute "zoneId", "number"
         attribute "currentActivity", "string"
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
         capability "Actuator"
         capability "Sensor"
         capability "Refresh"
         capability "Health Check"
-        
-        
-        
+
+
+
 
         command "generateEvent"
         command "resumeProgram"
@@ -61,13 +62,13 @@ metadata {
         command "raiseCoolSetpoint"
         // To satisfy some SA/rules that incorrectly using poll instead of Refresh
         command "poll"
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
         //attribute "humidity", "number"
         //attribute "coolingSetpoint", "number"
         //attribute "heatingSetpoint", "number"
@@ -111,8 +112,8 @@ metadata {
                 attributeState("coolingSetpoint", label:'${currentValue}', unit:"dF", defaultState: true)
             }
         }
-        
-        
+
+
 
         standardTile("activity", "device.currentActivity", width: 2, height: 2) {
             state "away",   label:'${currentValue}', icon: "st.Health & Wellness.health12", backgroundColor:"#7eb26d"
@@ -137,7 +138,7 @@ metadata {
         standardTile("setSleep", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
             state "val", label:"Set Sleep", icon: "st.Bedroom.bedroom2", action: "setActivitySleep"
         }
-       
+
 
 
 
@@ -173,7 +174,7 @@ metadata {
             state "updating", label:"Updating...", icon: "st.secondary.secondary"
         }
         valueTile("thermostat", "device.thermostat", width:2, height:1, decoration: "flat") {
-                state "thermostat", label:'${currentValue}', backgroundColor:"#ffffff"
+            state "thermostat", label:'${currentValue}', backgroundColor:"#ffffff"
         }
         standardTile("refresh", "device.thermostatMode", width:2, height:1, inactiveLabel: false, decoration: "flat") {
             state "default", action:"refresh.refresh", icon:"st.secondary.refresh"
@@ -182,7 +183,7 @@ metadata {
             state "resume", action:"resumeProgram", nextState: "updating", label:'Resume', icon:"st.samsung.da.oven_ic_send"
             state "updating", label:"Working", icon: "st.secondary.secondary"
         }
-        
+
         // the tile will appear in the Things view
         main "temperature"
 
@@ -223,21 +224,21 @@ def updated() {
 }
 
 def initialize() {
-	sendEvent(name: "supportedThermostatFanModes", value: fanModes(), displayed: false)
-    
-    
+    sendEvent(name: "supportedThermostatFanModes", value: fanModes(), displayed: false)
+
+
     sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "cloud", scheme:"untracked"]), displayed: false)
     updateDataValue("EnrolledUTDH", "true")
 }
 
 def updateState(zoneId, zone) {
 
-	// extract the attributes
+    // extract the attributes
     def temperature     = zone.rt.get(0)
     def humidity        = zone.rh.get(0)
     def coolingSetpoint = zone.clsp.get(0)
     def heatingSetpoint = zone.htsp.get(0)
-    
+
     def currentActivity  		 = zone.currentActivity.get(0)
     def thermostatMode  		 = "auto"//getThermostatMode(zone.htsp.get(0))
     def thermostatFanMode  		 = getThermostatFanMode(zone.fan.get(0))
@@ -245,49 +246,52 @@ def updateState(zoneId, zone) {
 
     log.debug "UpdateState for zone ${zoneId}: temp=${temperature}, humidity=${humidity}"
 
-    sendEvent([name: "zone", value: zoneId])
+    sendEvent([name: "zoneId", value: zoneId])
 
     sendEvent([name: "temperature", value: temperature, unit: "F"])
     sendEvent([name: "humidity", value: humidity])
     sendEvent([name: "heatingSetpoint", value: heatingSetpoint])
     sendEvent([name: "coolingSetpoint", value: coolingSetpoint])
-    
+
     sendEvent([name: "currentActivity", value: currentActivity])
     sendEvent([name: "thermostatMode", value: thermostatMode])
     sendEvent([name: "thermostatFanMode", value: thermostatFanMode])
     sendEvent([name: "thermostatOperatingState", value: thermostatOperatingState])
 }
 
+def setActivityPerSchedule() {
+    log.debug "Switch to schedule"
+
+    if (!(parent.setHold(device.currentValue("zoneId"), activity, "off", ""))) {
+        log.warn "Error removing the hold"
+    }
+}
 
 def setActivityHome() {
-    switchActivityToMode("home");
+    switchActivityTo("home");
 }
 
 def setActivityAway() {
-    switchActivityToMode("away");
+    switchActivityTo("away");
 }
 
 def setActivityWake() {
-    switchActivityToMode("wake");
+    switchActivityTo("wake");
 }
 
 def setActivitySleep() {
-    switchActivityToMode("sleep");
+    switchActivityTo("sleep");
 } 
 
-private switchActivityToMode(mode) {
-	log.debug "switchToMode: ${mode}"
-    
-    sendEvent([name: "currentActivity", value: mode])
-    
-	def deviceId = device.deviceNetworkId.split(/\./).last()
-	// Thermostat's mode for "emergency heat" is "auxHeatOnly"
-	if (!(parent.setMode(((mode == "emergency heat") ? "auxHeatOnly" : mode), device.zone))) {
-		log.warn "Error setting mode:$mode"
-		// Ensure the DTH tile is reset
-	//	generateModeEvent(device.currentValue("thermostatMode"))
-	}
-	//XYZ runIn(5, "refresh", [overwrite: true])
+private switchActivityTo(activity) {
+    log.debug "Switch to mode: ${activity}"
+
+    if (!(parent.setHold(device.currentValue("zoneId"), activity))) {
+        log.warn "Error setting mode: ${activity}"
+
+    } else {
+        sendEvent([name: "currentActivity", value: activity])
+    }
 }
 
 
@@ -300,13 +304,13 @@ private switchActivityToMode(mode) {
 private getThermostatMode(original) {
     switch (original) {
         case "cool":
-        	return "cool"
+        return "cool"
 
         case "heat":
-        	return "heat"
+        return "heat"
 
         case "auto":
-        	return "auto"
+        return "auto"
 
         default:
             return "off"
@@ -316,10 +320,10 @@ private getThermostatMode(original) {
 private getThermostatFanMode(original) {
     switch (original) {
         case "off":
-        	return "auto"
+        return "auto"
 
         case "low":
-        	return "circulate"
+        return "circulate"
 
         default:
             return "on"
@@ -330,13 +334,13 @@ private getThermostatOperatingState(original) {
     switch (original) {
         case "heat":
         case "hpheat":
-        	return "heating"
+        return "heating"
 
         case "cool":
-        	return "cooling"
+        return "cooling"
 
         case "fanonly":
-        	return "fan only"
+        return "fan only"
 
         default:
             return "idle"
