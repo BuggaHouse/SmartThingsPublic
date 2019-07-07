@@ -216,7 +216,7 @@ def updated() {
     state.deviceAttributes << [ devices: 'switchLevels', attributes: ['level']]
     state.deviceAttributes << [ devices: 'tamperAlerts', attributes: ['tamper']]
     state.deviceAttributes << [ devices: 'temperatures', attributes: ['temperature','feelsLike']]
-    state.deviceAttributes << [ devices: 'thermostats', attributes: ['temperature','humidity','heatingSetpoint','coolingSetpoint','thermostat','thermostatFanMode','thermostatSchedule']]
+    state.deviceAttributes << [ devices: 'thermostats', attributes: ['temperature','humidity','heatingSetpoint','coolingSetpoint','thermostatOperatingState','thermostatFanMode','currentActivity']]
     state.deviceAttributes << [ devices: 'threeAxis', attributes: ['threeAxis']]
     state.deviceAttributes << [ devices: 'touchs', attributes: ['touch']]
     state.deviceAttributes << [ devices: 'uvs', attributes: ['ultravioletIndex']]
@@ -410,20 +410,20 @@ def handleEvent(evt) {
         valueBinary = ('detected' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
-    else if ('thermostat' == evt.name) { // thermostatMode: Calculate a binary value (<any other value> = 1, off = 0)
-        unit = 'thermostat'
-        value = '"' + value + '"'
-        valueBinary = ('idle' == evt.value) ? '0i' : '1i'
-        data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
-    }
     else if ('thermostatFanMode' == evt.name) { // thermostatFanMode: Calculate a binary value (<any other value> = 1, off = 0)
         unit = 'thermostatFanMode'
         value = '"' + value + '"'
         valueBinary = ('off' == evt.value) ? '0i' : '1i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
-    else if ('thermostatSchedule' == evt.name) { // thermostatOperatingState: Calculate a binary value (heating = 1, <any other value> = 0)
-        unit = 'thermostatSchedule'
+    else if ('thermostatOperatingState' == evt.name) { // thermostatOperatingState: Calculate a binary value (heating = 1, <any other value> = 0)
+        unit = 'thermostatOperatingState'
+        value = '"' + value + '"'
+        valueBinary = ('heating' == evt.value) ? '1i' : '0i'
+        data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
+    }
+    else if ('currentActivity' == evt.name) { // currentActivity: Calculate a binary value (home = 1, <any other value> = 0)
+        unit = 'currentActivity'
         value = '"' + value + '"'
         valueBinary = ('home' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
