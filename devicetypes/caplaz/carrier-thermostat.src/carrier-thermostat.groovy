@@ -16,6 +16,7 @@
 
 metadata {
     definition (name: "Carrier Thermostat", namespace: "Caplaz", author: "Stefano Acerbetti") {
+        capability "Actuator"
         capability "Health Check"
         capability "Relative Humidity Measurement"
         capability "Refresh"
@@ -36,9 +37,14 @@ metadata {
 		command "setTemperature", ["number"]
 
         attribute "zoneId", "number"
-        attribute "currentActivity", "string"
+        attribute "thermostatActivity", "string"
+        
         attribute "hold", "string"
         attribute "holdUntil", "string"
+        
+        attribute "gasUsageDay", "number"
+        attribute "gasUsageMonth", "number"
+        attribute "gasUsageYear", "number"
     }
 
     tiles(scale: 2) {
@@ -81,23 +87,23 @@ metadata {
             }
         }
 
-        standardTile("activity", "device.currentActivity", width: 2, height: 2) {
+        standardTile("activity", "device.thermostatActivity", width: 2, height: 2) {
             state "away",   label:'${currentValue}', icon: "st.Health & Wellness.health12", backgroundColor:"#7eb26d"
             state "wake",   label:'${currentValue}', icon: "st.Lighting.light1", backgroundColor:"#f9934e"
             state "sleep",  label:'${currentValue}', icon: "st.Bedroom.bedroom2", backgroundColor:"#614d93"
             state "home",   label:'${currentValue}', icon: "st.Home.home4", backgroundColor:"#1f78c1"
             state "manual", label:'${currentValue}', icon: "st.Home.home1", backgroundColor:"#d683ce"
         }
-        standardTile("setHome", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+        standardTile("setHome", "device.thermostatActivity", decoration: "flat", width: 2, height: 1)	{
             state "val", label:"Set Home", icon: "st.Home.home4", action: "setActivityHome"
         }
-        standardTile("setAway", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+        standardTile("setAway", "device.thermostatActivity", decoration: "flat", width: 2, height: 1)	{
             state "val", label:"Set Away", icon: "st.Health & Wellness.health12", action: "setActivityAway"
         }
-        standardTile("setWake", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+        standardTile("setWake", "device.thermostatActivity", decoration: "flat", width: 2, height: 1)	{
             state "val", label:"Set Wake", icon: "st.Lighting.light1", action: "setActivityWake"
         }
-        standardTile("setSleep", "device.currentActivity", decoration: "flat", width: 2, height: 1)	{
+        standardTile("setSleep", "device.thermostatActivity", decoration: "flat", width: 2, height: 1)	{
             state "val", label:"Set Sleep", icon: "st.Bedroom.bedroom2", action: "setActivitySleep"
         }
 
@@ -171,8 +177,6 @@ def initialize() {
 }
 
 def updateState(zoneId, zone) {
-
-    // extract the attributes
     def temperature     = zone.rt.get(0)
     def humidity        = zone.rh.get(0)
     def coolingSetpoint = zone.clsp.get(0)
@@ -181,7 +185,7 @@ def updateState(zoneId, zone) {
     def hold = zone.hold.get(0)
     def holdUntil = zone.otmr.get(0)
 
-    def currentActivity  		 = zone.currentActivity.get(0)
+    def thermostatActivity  	 = zone.currentActivity.get(0)
     def thermostatMode  		 = "heat"//getThermostatMode(zone.htsp.get(0))
     def thermostatFanMode  		 = getThermostatFanMode(zone.fan.get(0))
     def thermostatOperatingState = getThermostatOperatingState(zone.zoneconditioning.get(0))
@@ -195,13 +199,21 @@ def updateState(zoneId, zone) {
     sendEvent([name: "heatingSetpoint", value: heatingSetpoint])
     sendEvent([name: "coolingSetpoint", value: coolingSetpoint])
 
-    sendEvent([name: "currentActivity", value: currentActivity])
+    sendEvent([name: "thermostatActivity", value: thermostatActivity])
     sendEvent([name: "thermostatMode", value: thermostatMode])
     sendEvent([name: "thermostatFanMode", value: thermostatFanMode])
     sendEvent([name: "thermostatOperatingState", value: thermostatOperatingState])
     
     sendEvent([name: "hold", value: hold])
     sendEvent([name: "holdUntil", value: holdUntil])
+}
+
+def updateUsage(day, month, year) {
+    log.debug "Update Gas Usage: day=${day}, month=${month}, year=${year}"
+    
+    sendEvent([name: "gasUsageDay", value: day])
+    sendEvent([name: "gasUsageMonth", value: month])
+    sendEvent([name: "gasUsageYear", value: year])
 }
 
 def evaluate(temp, heatingSetpoint, coolingSetpoint) {
@@ -323,14 +335,14 @@ def coolDown() {
  ***********************/
  
 def setCoolingSetpoint(setpoint) {
-    log.debug "Set cooling point to ${setpoint} for activity ${device.currentValue("currentActivity")}"
+    log.debug "Set cooling point to ${setpoint} for activity ${device.currentValue("thermostatActivity")}"
     
 	sendEvent(name: "coolingSetpoint", value: setpoint)
 	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), setpoint)
 }
 
 def setHeatingSetpoint(setpoint) {
-    log.debug "Set heating point to ${setpoint} for activity ${device.currentValue("currentActivity")}"
+    log.debug "Set heating point to ${setpoint} for activity ${device.currentValue("thermostatActivity")}"
     
 	sendEvent(name: "heatingSetpoint", value: setpoint)
 	evaluate(device.currentValue("temperature"), setpoint, device.currentValue("coolingSetpoint"))
@@ -421,7 +433,7 @@ private switchActivityTo(activity) {
         log.warn "Error setting mode: ${activity}"
 
     } else {
-        sendEvent([name: "currentActivity", value: activity])
+        sendEvent([name: "thermostatActivity", value: activity])
     }
 }
 
