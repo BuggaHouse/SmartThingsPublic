@@ -19,9 +19,9 @@ definition(
     author: "Stefano Acerbetti",
     description: "Infinitude is an alternative web service for Carrier Infinity Touch and compatible thermostats.",
     category: "My Apps",
-    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
+    iconUrl: "https://buggahouse.github.io/icons/carrier.png",
+    iconX2Url: "https://buggahouse.github.io/icons/carrier@2x.png",
+    iconX3Url: "https://buggahouse.github.io/icons/carrier@3x.png")
 
 
 preferences {
@@ -51,15 +51,79 @@ def initialize() {
     // refresh the devices every 5 minuts
     unschedule(refresh)
     runEvery5Minutes(refresh)
+    
+    // get usage stats every 30 minutes
+    unschedule(getUsage)
+    runEvery30Minutes(getUsage)
 }
 
 def refresh() {
-    log.debug "Executing 'poll'"
+    log.debug "Executing 'refresh'"
 
     def children = getAllChildDevices()
     children.each { child ->
         def zoneId = dniToZone(child.deviceNetworkId)
         getZoneStatus(zoneId)
+    }
+}
+
+
+
+
+
+/***********
+ *  USAGE  *
+ ***********/
+
+def getUsage() {
+    log.debug "Getting usage stats"
+
+    try {
+        def hubAction = new physicalgraph.device.HubAction(
+            [
+                method: "GET",
+                path: "/energy.json",
+                headers: [ HOST: getInfinitudeHost() ] 
+            ],
+            null,
+            [ callback: getUsageParser ]
+        )
+        sendHubCommand(hubAction)
+
+    } catch (Exception e) {
+        log.error "getUsage(): Exception ${e} on ${hubAction}"
+    }
+}
+
+def getUsageParser(physicalgraph.device.HubResponse hubResponse) {
+    if (hubResponse.status == 200) {
+        def body = hubResponse.json
+        def energy = body.energy.get(0)
+        def usage = energy.usage.get(0)
+
+        def day = 0
+        def month = 0
+        def year = 0
+
+        usage.period.each { period ->
+            if (period.id == "day1") {
+                day = period.gas.get(0).toInteger()
+
+            } else if (period.id == "month1") {
+                month = period.gas.get(0).toInteger()
+
+            } else if (period.id == "year1") {
+                year = period.gas.get(0).toInteger()
+            }
+        }
+
+        def children = getAllChildDevices()
+        children.each { child ->
+            child.updateUsage(day, month, year)
+        }
+
+    } else {
+        log.error "Error getting the usage stats: ${hubResponse}"
     }
 }
 
@@ -106,8 +170,9 @@ def getZonesConfigParser(physicalgraph.device.HubResponse hubResponse) {
                 addThermostat(dni, name)
             }
         }
+        
     } else {
-        log.error "NETWORK ERROR"
+        log.error "Error getting the zone configs: ${hubResponse}"
     }
 }
 
@@ -157,7 +222,7 @@ def getZoneStatusParser(physicalgraph.device.HubResponse hubResponse) {
         }
 
     } else {
-        log.error "NETWORK ERROR"
+        log.error "Error getting the zone statuses: ${hubResponse}"
     }
 }
 

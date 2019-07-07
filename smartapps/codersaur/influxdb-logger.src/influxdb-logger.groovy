@@ -216,7 +216,7 @@ def updated() {
     state.deviceAttributes << [ devices: 'switchLevels', attributes: ['level']]
     state.deviceAttributes << [ devices: 'tamperAlerts', attributes: ['tamper']]
     state.deviceAttributes << [ devices: 'temperatures', attributes: ['temperature','feelsLike']]
-    state.deviceAttributes << [ devices: 'thermostats', attributes: ['temperature','humidity','heatingSetpoint','coolingSetpoint','thermostatOperatingState','thermostatFanMode','currentActivity']]
+    state.deviceAttributes << [ devices: 'thermostats', attributes: ['temperature','humidity','heatingSetpoint','coolingSetpoint','thermostatOperatingState','thermostatFanMode','thermostatActivity','gasUsageDay','gasUsageMonth','gasUsageYear']]
     state.deviceAttributes << [ devices: 'threeAxis', attributes: ['threeAxis']]
     state.deviceAttributes << [ devices: 'touchs', attributes: ['touch']]
     state.deviceAttributes << [ devices: 'uvs', attributes: ['ultravioletIndex']]
@@ -422,8 +422,8 @@ def handleEvent(evt) {
         valueBinary = ('heating' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
     }
-    else if ('currentActivity' == evt.name) { // currentActivity: Calculate a binary value (home = 1, <any other value> = 0)
-        unit = 'currentActivity'
+    else if ('thermostatActivity' == evt.name) { // thermostatActivity: Calculate a binary value (home = 1, <any other value> = 0)
+        unit = 'thermostatActivity'
         value = '"' + value + '"'
         valueBinary = ('home' == evt.value) ? '1i' : '0i'
         data += ",unit=${unit} value=${value},valueBinary=${valueBinary}"
