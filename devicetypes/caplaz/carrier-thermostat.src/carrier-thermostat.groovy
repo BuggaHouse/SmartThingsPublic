@@ -43,8 +43,11 @@ metadata {
         attribute "holdUntil", "string"
         
         attribute "gasUsageDay", "number"
+        attribute "gasUsageDayTile", "string"
         attribute "gasUsageMonth", "number"
+        attribute "gasUsageMonthTile", "string"
         attribute "gasUsageYear", "number"
+        attribute "gasUsageYearTile", "string"
     }
 
     tiles(scale: 2) {
@@ -107,6 +110,18 @@ metadata {
             state "val", label:"Set Sleep", icon: "st.Bedroom.bedroom2", action: "setActivitySleep"
         }
 
+        standardTile("gasUsage", "device.gasUsageDayTile", width: 6, height: 2)	{
+            state "label", label: 'Gas Usage', icon: "st.Home.home29"
+        }
+        valueTile("gasUsageDay", "device.gasUsageDayTile", width: 2, height: 2) {
+            state "gas", label: '${currentValue}'
+        }
+        valueTile("gasUsageMonth", "device.gasUsageMonthTile", width: 2, height: 2) {
+            state "gas", label: '${currentValue}'
+        }
+        valueTile("gasUsageYear", "device.gasUsageYearTile", width: 2, height: 2) {
+            state "gas", label: '${currentValue}'
+        }
 /*
 		valueTile("heatingSetpoint", "device.heatingSetpoint", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
 			state "heat", label:'${currentValue} heat', unit: "F", backgroundColor:"#ffffff"
@@ -147,7 +162,8 @@ metadata {
 			"temperature", "tempDown", "tempUp",
 			"heatingSetpoint", "heatDown", "heatUp",
 			"coolingSetpoint", "coolDown", "coolUp",
-            "operatingState", "refresh"
+            "operatingState", "refresh",
+            "gasUsage", "gasUsageDay", "gasUsageMonth", "gasUsageYear"
         ])
     }
 
@@ -211,9 +227,27 @@ def updateState(zoneId, zone) {
 def updateUsage(day, month, year) {
     log.debug "Update Gas Usage: day=${day}, month=${month}, year=${year}"
     
+    // save the numeric values
     sendEvent([name: "gasUsageDay", value: day])
     sendEvent([name: "gasUsageMonth", value: month])
     sendEvent([name: "gasUsageYear", value: year])
+    
+    // get the date objects
+    def today = new Date()
+    def yesterday = today.previous()
+    
+    def calendar = today.toCalendar()
+    calendar.add(Calendar.MONTH, -1);
+    def lastMonth = calendar.getTime()
+    
+    // now format the strings for the tiles
+    def dayString = "${yesterday.format("EEEE", location.timeZone)}\n\n${day/100.0} thm"
+    def monthString = "${lastMonth.format("MMMM", location.timeZone)}\n\n${month/100.0} thm"
+    def yearString = "${today.format("yyyy", location.timeZone)}\n\n${year/100.0} thm"
+    
+    sendEvent([name: "gasUsageDayTile", value: dayString, displayed: false])
+    sendEvent([name: "gasUsageMonthTile", value: monthString, displayed: false])
+    sendEvent([name: "gasUsageYearTile", value: yearString, displayed: false])
 }
 
 def evaluate(temp, heatingSetpoint, coolingSetpoint) {
