@@ -27,6 +27,7 @@ metadata {
         command "setActivityAway"
         command "setActivityWake"
         command "setActivitySleep"
+        command "setActivityManual"
         
 		command "tempUp"
 		command "tempDown"
@@ -110,18 +111,28 @@ metadata {
             state "val", label:"Set Sleep", icon: "st.Bedroom.bedroom2", action: "setActivitySleep"
         }
 
-        standardTile("gasUsage", "device.gasUsageDayTile", width: 6, height: 2)	{
+        standardTile("gasUsageSection", "device.gasUsageDayTile", width: 6, height: 2)	{
             state "label", label: 'Gas Usage', icon: "st.Home.home29"
         }
-        valueTile("gasUsageDay", "device.gasUsageDayTile", width: 2, height: 2) {
-            state "gas", label: '${currentValue}'
+        valueTile("gasUsageDayTitle", "device.gasUsageDayTile", width: 2, height: 1) {
+            state "label", label: '${currentValue}'
         }
-        valueTile("gasUsageMonth", "device.gasUsageMonthTile", width: 2, height: 2) {
-            state "gas", label: '${currentValue}'
+        valueTile("gasUsageDay", "device.gasUsageDay", width: 4, height: 1) {
+            state "label", label: '${currentValue} thm'
         }
-        valueTile("gasUsageYear", "device.gasUsageYearTile", width: 2, height: 2) {
-            state "gas", label: '${currentValue}'
+        valueTile("gasUsageMonthTitle", "device.gasUsageMonthTile", width: 2, height: 1) {
+            state "label", label: '${currentValue}'
         }
+        valueTile("gasUsageMonth", "device.gasUsageMonth", width: 4, height: 1) {
+            state "label", label: '${currentValue} thm'
+        }
+        valueTile("gasUsageYearTitle", "device.gasUsageYearTile", width: 2, height: 1) {
+            state "label", label: '${currentValue}'
+        }
+        valueTile("gasUsageYear", "device.gasUsageYear", width: 4, height: 1) {
+            state "label", label: '${currentValue} thm'
+        }
+        
 /*
 		valueTile("heatingSetpoint", "device.heatingSetpoint", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
 			state "heat", label:'${currentValue} heat', unit: "F", backgroundColor:"#ffffff"
@@ -163,7 +174,10 @@ metadata {
 			"heatingSetpoint", "heatDown", "heatUp",
 			"coolingSetpoint", "coolDown", "coolUp",
             "operatingState", "refresh",
-            "gasUsage", "gasUsageDay", "gasUsageMonth", "gasUsageYear"
+            "gasUsageSection", 
+            "gasUsageDayTitle", "gasUsageDay", 
+            "gasUsageMonthTitle", "gasUsageMonth", 
+            "gasUsageYearTitle", "gasUsageYear"
         ])
     }
 
@@ -228,9 +242,9 @@ def updateUsage(day, month, year) {
     log.debug "Update Gas Usage: day=${day}, month=${month}, year=${year}"
     
     // save the numeric values
-    sendEvent([name: "gasUsageDay", value: day])
-    sendEvent([name: "gasUsageMonth", value: month])
-    sendEvent([name: "gasUsageYear", value: year])
+    sendEvent([name: "gasUsageDay", value: day / 100.0])
+    sendEvent([name: "gasUsageMonth", value: month / 100.0])
+    sendEvent([name: "gasUsageYear", value: year / 100.0])
     
     // get the date objects
     def today = new Date()
@@ -241,55 +255,13 @@ def updateUsage(day, month, year) {
     def lastMonth = calendar.getTime()
     
     // now format the strings for the tiles
-    def dayString = "${yesterday.format("EEEE", location.timeZone)}\n\n${day/100.0} thm"
-    def monthString = "${lastMonth.format("MMMM", location.timeZone)}\n\n${month/100.0} thm"
-    def yearString = "${today.format("yyyy", location.timeZone)}\n\n${year/100.0} thm"
+    def dayString = "${yesterday.format("EEEE", location.timeZone)}"
+    def monthString = "${lastMonth.format("MMMM", location.timeZone)}"
+    def yearString = "${today.format("yyyy", location.timeZone)} to date"
     
     sendEvent([name: "gasUsageDayTile", value: dayString, displayed: false])
     sendEvent([name: "gasUsageMonthTile", value: monthString, displayed: false])
     sendEvent([name: "gasUsageYearTile", value: yearString, displayed: false])
-}
-
-def evaluate(temp, heatingSetpoint, coolingSetpoint) {
-	log.debug "evaluate($temp, $heatingSetpoint, $coolingSetpoint"
-	def threshold = 1.0
-	def current = device.currentValue("thermostatOperatingState")
-	def mode = device.currentValue("thermostatMode")
-
-	def heating = false
-	def cooling = false
-	def idle = false
-	if (mode in ["heat","emergency heat","auto"]) {
-		if (heatingSetpoint - temp >= threshold) {
-			heating = true
-			sendEvent(name: "thermostatOperatingState", value: "heating")
-		}
-		else if (temp - heatingSetpoint >= threshold) {
-			idle = true
-		}
-		sendEvent(name: "thermostatSetpoint", value: heatingSetpoint)
-	}
-	if (mode in ["cool","auto"]) {
-		if (temp - coolingSetpoint >= threshold) {
-			cooling = true
-			sendEvent(name: "thermostatOperatingState", value: "cooling")
-		}
-		else if (coolingSetpoint - temp >= threshold && !heating) {
-			idle = true
-		}
-		sendEvent(name: "thermostatSetpoint", value: coolingSetpoint)
-	}
-	else {
-		sendEvent(name: "thermostatSetpoint", value: heatingSetpoint)
-	}
-
-	if (mode == "off") {
-		idle = true
-	}
-
-	if (idle && !heating && !cooling) {
-		sendEvent(name: "thermostatOperatingState", value: "idle")
-	}
 }
 
 
@@ -315,7 +287,6 @@ def ping() {
  ***********************/
 
 def setTemperature(value) {
-	def ts = device.currentState("temperature")
 	sendEvent(name:"temperature", value: value)
 	evaluate(value, device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
 }
@@ -323,43 +294,37 @@ def setTemperature(value) {
 def tempUp() {
 	def ts = device.currentState("temperature")
 	def value = ts ? ts.integerValue + 1 : 72
-	sendEvent(name:"temperature", value: value)
-	evaluate(value, device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
+    setTemperature(value)
 }
 
 def tempDown() {
 	def ts = device.currentState("temperature")
 	def value = ts ? ts.integerValue - 1 : 72
-	sendEvent(name:"temperature", value: value)
-	evaluate(value, device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
+    setTemperature(value)
 }
 
 def heatUp() {
 	def ts = device.currentState("heatingSetpoint")
 	def value = ts ? ts.integerValue + 1 : 68
-	sendEvent(name:"heatingSetpoint", value: value)
-	evaluate(device.currentValue("temperature"), value, device.currentValue("coolingSetpoint"))
+    setHeatingSetpoint(value)
 }
 
 def heatDown() {
 	def ts = device.currentState("heatingSetpoint")
 	def value = ts ? ts.integerValue - 1 : 68
-	sendEvent(name:"heatingSetpoint", value: value)
-	evaluate(device.currentValue("temperature"), value, device.currentValue("coolingSetpoint"))
+    setHeatingSetpoint(value)
 }
 
 def coolUp() {
 	def ts = device.currentState("coolingSetpoint")
 	def value = ts ? ts.integerValue + 1 : 76
-	sendEvent(name:"coolingSetpoint", value: value)
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), value)
+    setCoolingSetpoint(value)
 }
 
 def coolDown() {
 	def ts = device.currentState("coolingSetpoint")
 	def value = ts ? ts.integerValue - 1 : 76
-	sendEvent(name:"coolingSetpoint", value: value)
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), value)
+    setCoolingSetpoint(value)
 }
 
 
@@ -370,16 +335,30 @@ def coolDown() {
  
 def setCoolingSetpoint(setpoint) {
     log.debug "Set cooling point to ${setpoint} for activity ${device.currentValue("thermostatActivity")}"
-    
-	sendEvent(name: "coolingSetpoint", value: setpoint)
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), setpoint)
+
+    if (!(parent.setActivityConfig(device.currentValue("zoneId"), "manual", ["clsp": setpoint]))) {
+        log.warn "Error setting cooling point to ${setpoint}"
+
+    } else {
+        sendEvent(name: "coolingSetpoint", value: setpoint)
+        setActivityManual()
+        
+        evaluate(device.currentValue("temperature"), setpoint, device.currentValue("coolingSetpoint"))
+    }
 }
 
 def setHeatingSetpoint(setpoint) {
     log.debug "Set heating point to ${setpoint} for activity ${device.currentValue("thermostatActivity")}"
-    
-	sendEvent(name: "heatingSetpoint", value: setpoint)
-	evaluate(device.currentValue("temperature"), setpoint, device.currentValue("coolingSetpoint"))
+
+    if (!(parent.setActivityConfig(device.currentValue("zoneId"), "manual", ["htsp": setpoint]))) {
+        log.warn "Error setting heating point to ${setpoint}"
+
+    } else {
+        sendEvent(name: "heatingSetpoint", value: setpoint)
+        setActivityManual()
+        
+        evaluate(device.currentValue("temperature"), setpoint, device.currentValue("coolingSetpoint"))
+    }
 }
 
 
@@ -389,45 +368,40 @@ def setThermostatMode(String value) {
 }
 
 def off() {
-	sendEvent(name: "thermostatMode", value: "off")
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
-}
-
-def heat() {
-	sendEvent(name: "thermostatMode", value: "heat")
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
+    setThermostatMode("off")
 }
 
 def auto() {
-	sendEvent(name: "thermostatMode", value: "auto")
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
+    setThermostatMode("auto")
+}
+
+def heat() {
+    setThermostatMode("heat")
 }
 
 def emergencyHeat() {
-	sendEvent(name: "thermostatMode", value: "emergency heat")
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
+    setThermostatMode("heat")
 }
 
 def cool() {
-	sendEvent(name: "thermostatMode", value: "cool")
-	evaluate(device.currentValue("temperature"), device.currentValue("heatingSetpoint"), device.currentValue("coolingSetpoint"))
+    setThermostatMode("cool")
 }
 
 
 def setThermostatFanMode(String value) {
-	sendEvent(name: "thermostatFanMode", value: value)
+    sendEvent(name: "thermostatFanMode", value: value)
 }
 
 def fanOn() {
-	sendEvent(name: "thermostatFanMode", value: "fanOn")
+    setThermostatFanMode("fanOn")
 }
 
 def fanAuto() {
-	sendEvent(name: "thermostatFanMode", value: "fanAuto")
+    setThermostatFanMode("fanAuto")
 }
 
 def fanCirculate() {
-	sendEvent(name: "thermostatFanMode", value: "fanCirculate")
+    setThermostatFanMode("fanCirculate")
 }
 
 
@@ -460,6 +434,10 @@ def setActivitySleep() {
     switchActivityTo("sleep");
 } 
 
+def setActivityManual() {
+    switchActivityTo("manual");
+} 
+
 private switchActivityTo(activity) {
     log.debug "Switch to mode: ${activity}"
 
@@ -477,6 +455,51 @@ private switchActivityTo(activity) {
 /***********************
  *       HELPERS       *
  ***********************/
+
+private evaluate(temp, heatingSetpoint, coolingSetpoint) {
+	log.debug "evaluate($temp, $heatingSetpoint, $coolingSetpoint"
+    
+	def threshold = 1.0
+	def current = device.currentValue("thermostatOperatingState")
+	def mode = device.currentValue("thermostatMode")
+
+	def heating = false
+	def cooling = false
+	def idle    = false
+    
+	if (mode in ["heat","emergency heat","auto"]) {
+		if (heatingSetpoint - temp >= threshold) {
+			heating = true
+			sendEvent(name: "thermostatOperatingState", value: "heating")
+		}
+		else if (temp - heatingSetpoint >= threshold) {
+			idle = true
+		}
+		sendEvent(name: "thermostatSetpoint", value: heatingSetpoint)
+	}
+    
+	if (mode in ["cool","auto"]) {
+		if (temp - coolingSetpoint >= threshold) {
+			cooling = true
+			sendEvent(name: "thermostatOperatingState", value: "cooling")
+		}
+		else if (coolingSetpoint - temp >= threshold && !heating) {
+			idle = true
+		}
+		sendEvent(name: "thermostatSetpoint", value: coolingSetpoint)
+	}
+	else {
+		sendEvent(name: "thermostatSetpoint", value: heatingSetpoint)
+	}
+
+	if (mode == "off") {
+		idle = true
+	}
+
+	if (idle && !heating && !cooling) {
+		sendEvent(name: "thermostatOperatingState", value: "idle")
+	}
+}
 
 private getThermostatMode(mode) {
     log.debug "Thermostat mode: ${mode}"
