@@ -52,9 +52,9 @@ def initialize() {
     unschedule(refresh)
     runEvery5Minutes(refresh)
     
-    // get usage stats every 30 minutes
+    // get usage stats every 3 hours (updated daily)
     unschedule(getUsage)
-    runEvery30Minutes(getUsage)
+    runEvery3Hours(getUsage)
 }
 
 def refresh() {
