@@ -27,8 +27,8 @@ definition(
 	author: "Stefano Acerbetti",
 	description: "Log SmartThings events to a Papertrail HTTP Event Collector server",
 	category: "Convenience",
-	iconUrl: "http://apmblog.dynatrace.com/wp-content/uploads/2014/07/Splunk_thumbnail.png",
-	iconX2Url: "http://apmblog.dynatrace.com/wp-content/uploads/2014/07/Splunk_thumbnail.png",
+	iconUrl: "https://res-1.cloudinary.com/crunchbase-production/image/upload/c_lpad,h_170,w_170,f_auto,b_white,q_auto:eco/v1421582850/dqvgyw1reukrthz1gl1b.png",
+	iconX2Url: "https://res-1.cloudinary.com/crunchbase-production/image/upload/c_lpad,h_170,w_170,f_auto,b_white,q_auto:eco/v1421582850/dqvgyw1reukrthz1gl1b.png",
 	iconX3Url: "https://res-1.cloudinary.com/crunchbase-production/image/upload/c_lpad,h_170,w_170,f_auto,b_white,q_auto:eco/v1421582850/dqvgyw1reukrthz1gl1b.png"
 )
 
@@ -97,8 +97,9 @@ preferences {
 		input "lockDevice", "capability.lock", multiple: true, required: false
 	}
 
-	section ("Splunk Server") {
+	section ("Papertrail Server") {
 		input "use_local", "boolean", title: "Local Server?", required: true
+		input "use_json", "boolean", title: "Use JSON?", required: true
 		input "papertrail_host", "text", title: "Papertrail Hostname/IP", required: true
 		input "use_ssl", "boolean", title: "Use SSL?", required: true
 		input "papertrail_port", "number", title: "Papertrail Port", required: true
@@ -199,12 +200,17 @@ def genericHandler(evt) {
 	//log.debug("JSON: ${json}")
 	def ssl = use_ssl.toBoolean()
 	def local = use_local.toBoolean()
+	def use_json = use_json.toBoolean()
 	def http_protocol
 	def papertrail_server = "${papertrail_host}:${papertrail_port}"
+
+	def contentType = "application/json"
+	if (!use_json) {
+		contentType = "text/plain"
+		json = "${evt.isoDate} ${evt.location} ${evt.deviceId}: ${evt.descriptionText} - " + json
+	}
+
 	def length = json.getBytes().size().toString()
-	def msg = parseLanMessage(description)
-	def body = msg.body
-	def status = msg.status
 
 	if (local == true) {
 		//sendHubCommand(new physicalgraph.device.HubAction([
@@ -215,7 +221,7 @@ def genericHandler(evt) {
 				'Authorization': "Basic ${papertrail_token}",
 				"Content-Length":"${length}",
 				HOST: "${papertrail_server}",
-				"Content-Type":"application/json",
+				"Content-Type":contentType,
 				"Accept-Encoding":"gzip,deflate"
 			],
 			body:json
@@ -350,4 +356,5 @@ def voltageHandler(evt) {
 def lockHandler(evt) {
 	genericHandler(evt)
 }
+
 
