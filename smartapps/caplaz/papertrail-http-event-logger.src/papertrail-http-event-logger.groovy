@@ -207,7 +207,7 @@ def genericHandler(evt) {
 	def contentType = "application/json"
 	if (!use_json) {
 		contentType = "text/plain"
-		json = "${evt.isoDate} ${evt.location} ${evt.deviceId}: ${evt.descriptionText} - " + json
+		json = "${evt.isoDate} ${evt.deviceId} ${evt.location}: ${formatDescription(evt.descriptionText, evt.displayName, evt.value)}"
 	}
 
 	def length = json.getBytes().size().toString()
@@ -259,6 +259,10 @@ def genericHandler(evt) {
 			log.debug "Unexpected response error: ${ex.statusCode}"
 		}
 	}
+}
+
+def formatDescription(raw, label, value) {
+    return raw.replace('{{ linkText }}', label).replace('{{ value }}', value)
 }
 
 def alarmHandler(evt) {
